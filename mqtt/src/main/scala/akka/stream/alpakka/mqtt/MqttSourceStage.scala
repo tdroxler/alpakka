@@ -15,7 +15,7 @@ import scala.concurrent._
 import scala.util.Try
 
 final class MqttSourceStage(settings: MqttSourceSettings, bufferSize: Int)
-    extends GraphStageWithMaterializedValue[SourceShape[MqttMessage], Future[Done]] {
+    extends GraphStageWithMaterializedValue[SourceShape[MqttMessage], Future[Option[IMqttAsyncClient]]] {
 
   import MqttConnectorLogic._
 
@@ -23,19 +23,20 @@ final class MqttSourceStage(settings: MqttSourceSettings, bufferSize: Int)
   override val shape: SourceShape[MqttMessage] = SourceShape.of(out)
   override protected def initialAttributes: Attributes = Attributes.name("MqttSource")
 
+  private var mqttClient: Option[IMqttAsyncClient] = None
+
   override def createLogicAndMaterializedValue(inheritedAttributes: Attributes) = {
 
-    val subscriptionPromise = Promise[Done]
+    val subscriptionPromise = Promise[Option[IMqttAsyncClient]]
 
     (new GraphStageLogic(shape) with MqttConnectorLogic {
 
       private val queue = mutable.Queue[MqttMessage]()
       private val mqttSubscriptionCallback: Try[IMqttToken] => Unit = conn =>
         subscriptionPromise.complete(conn.map { _ =>
-          Done
+          mqttClient
         })
       private val backpressure = new Semaphore(bufferSize)
-      private var mqttClient: Option[IMqttAsyncClient] = None
       private val onMessage = getAsyncCallback[MqttMessage] { message =>
         require(queue.size <= bufferSize)
         if (isAvailable(out)) {

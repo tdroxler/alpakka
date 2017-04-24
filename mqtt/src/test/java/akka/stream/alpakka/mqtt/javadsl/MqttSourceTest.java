@@ -72,12 +72,12 @@ public class MqttSourceTest {
     );
 
     final Integer bufferSize = 8;
-    final Source<MqttMessage, CompletionStage<Done>> mqttSource =
+    final Source<MqttMessage, CompletionStage<scala.Option<org.eclipse.paho.client.mqttv3.IMqttAsyncClient>>> mqttSource =
       MqttSource.create(settings, bufferSize);
     //#create-source
 
     //#run-source
-    final Pair<CompletionStage<Done>, CompletionStage<List<String>>> result = mqttSource
+    final Pair<CompletionStage<scala.Option<org.eclipse.paho.client.mqttv3.IMqttAsyncClient>>, CompletionStage<List<String>>> result = mqttSource
       .map(m -> m.topic() + "-" + m.payload().utf8String())
       .take(messageCount * 2)
       .toMat(Sink.seq(), Keep.both())
